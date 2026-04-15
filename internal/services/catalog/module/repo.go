@@ -52,6 +52,8 @@ type Repo struct {
 	RemoteURL  string
 	BranchName string
 
+	casCloneDepth int
+
 	walkWithSymlinks bool
 	allowCAS         bool
 	slowReporting    bool
@@ -62,6 +64,7 @@ type RepoOpts struct {
 	CloneURL         string
 	Path             string
 	RootWorkingDir   string
+	CASCloneDepth    int
 	WalkWithSymlinks bool
 	AllowCAS         bool
 	SlowReporting    bool
@@ -74,6 +77,7 @@ func NewRepo(ctx context.Context, l log.Logger, opts RepoOpts) (*Repo, error) {
 		path:             opts.Path,
 		walkWithSymlinks: opts.WalkWithSymlinks,
 		allowCAS:         opts.AllowCAS,
+		casCloneDepth:    opts.CASCloneDepth,
 		slowReporting:    opts.SlowReporting,
 		rootWorkingDir:   opts.RootWorkingDir,
 	}
@@ -287,7 +291,16 @@ func (repo *Repo) performClone(ctx context.Context, l log.Logger, opts *CloneOpt
 	client := getter.DefaultClient
 
 	if repo.allowCAS {
-		c, err := cas.New()
+		cloneDepth := repo.casCloneDepth
+		if cloneDepth == 0 {
+			cloneDepth = cas.DefaultCASCloneDepth
+		}
+
+		if err := cas.ValidateCASCloneDepth(cloneDepth); err != nil {
+			return err
+		}
+
+		c, err := cas.New(cas.WithCloneDepth(cloneDepth))
 		if err != nil {
 			return err
 		}

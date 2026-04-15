@@ -22,7 +22,8 @@ import (
 	"github.com/gruntwork-io/terragrunt/pkg/log"
 )
 
-const defaultCloneDepth = 1
+// DefaultCASCloneDepth is the default shallow clone depth for CAS (git clone --depth).
+const DefaultCASCloneDepth = 1
 
 // Option configures the behavior of CAS.
 type Option func(*CAS)
@@ -41,8 +42,9 @@ type CloneOptions struct {
 	// If empty, does not preserve any files.
 	IncludedGitFiles []string
 
-	// Depth limits the clone history to the given number of commits.
-	// If zero, defaults to 1 (shallow clone). Set to -1 for full history.
+	// Depth limits the clone history to the given number of commits passed to git clone --depth.
+	// If zero, CAS falls back to its configured clone depth (default shallow depth 1).
+	// Set to -1 for full history (Terragrunt omits --depth; git rejects --depth 0).
 	Depth int
 }
 
@@ -65,9 +67,10 @@ func WithStorePath(path string) Option {
 	}
 }
 
-// WithCloneDepth overrides the default clone depth.
-// A value of 0 uses the default (shallow clone, depth 1).
-// A negative value (e.g. -1) clones the full history.
+// WithCloneDepth sets git clone --depth for CAS (positive shallow clone; negative,
+// e.g. -1, means full history with no --depth). Terragrunt validates user-supplied
+// values with ValidateCASCloneDepth (zero is invalid for git). Omit this option to
+// keep cloneDepth unset so per-operation CloneOptions.Depth can fall back to DefaultCASCloneDepth.
 func WithCloneDepth(depth int) Option {
 	return func(c *CAS) {
 		c.cloneDepth = depth
@@ -246,7 +249,11 @@ func (c *CAS) cloneAndStoreContent(
 ) error {
 	depth := opts.Depth
 	if depth == 0 {
-		depth = defaultCloneDepth
+		depth = c.cloneDepth
+	}
+
+	if depth == 0 {
+		depth = DefaultCASCloneDepth
 	}
 
 	if depth < 0 {
