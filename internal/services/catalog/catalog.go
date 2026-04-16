@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 
 	"github.com/gruntwork-io/terragrunt/internal/cli/commands/scaffold"
@@ -264,7 +265,7 @@ func (s *catalogServiceImpl) Modules() module.Modules {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.modules
+	return slices.Clone(s.modules)
 }
 
 func (s *catalogServiceImpl) Scaffold(ctx context.Context, l log.Logger, opts *options.TerragruntOptions, module *module.Module) error {
